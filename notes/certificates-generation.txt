@@ -1,0 +1,19 @@
+#generate private/public keys (java keystore)
+keytool -genkeypair -keyalg RSA -keysize 3072 -alias test-ca -dname "CN=Test CA,OU=Development,O=Garcia Inc,C=MY" -ext BC:c=ca:true -ext KU=keyCertSign -validity 3650 -keystore D:\workspace\springboot-tls\ca-certs\ca.jks -storepass secret123 -keypass secret123
+
+#export the certificate
+keytool -exportcert -keystore D:\workspace\springboot-tls\ca-certs\ca.jks -storepass secret123 -alias test-ca -rfc -file D:\workspace\springboot-tls\ca-certs\ca.pem
+
+#create java key store file containing the private/public keys for the server certificate.
+#The private key is required to generate the certificate signing request. The CA uses the public key for validating the certificate signing request.
+keytool -genkeypair -keyalg RSA -keysize 3072 -alias localhost -dname "CN=localhost,OU=Development,O=Garcia Inc,C=MY" -ext BC:c=ca:false -ext EKU:c=serverAuth -ext "SAN:c=DNS:localhost,IP:127.0.0.1" -validity 3650 -keystore D:\workspace\springboot-tls\server-certs\server.jks -storepass secret123 -keypass secret123
+
+#generation of the signing request for your server certificate
+keytool -certreq -keystore D:\workspace\springboot-tls\server-certs\server.jks -storepass secret123 -alias localhost -keypass secret123 -file D:\workspace\springboot-tls\server-certs\server.csr
+
+#now sign and export your server certificate using the file server.csr from the previous step
+keytool -gencert -keystore D:\workspace\springboot-tls\ca-certs\ca.jks -storepass secret123 -infile D:\workspace\springboot-tls\server-certs\server.csr -alias test-ca -keypass secret123 -ext BC:c=ca:false -ext EKU:c=serverAuth -ext "SAN:c=DNS:localhost,IP:127.0.0.1" -validity 3650 -rfc -outfile D:\workspace\springboot-tls\server-certs\server.pem
+
+#To achieve the required valid chain of trust between the root ca and the signed server certificate you have to perform the following last step
+keytool -importcert -noprompt -keystore D:\workspace\springboot-tls\server-certs\server.jks -storepass secret123 -alias test-ca -keypass secret123 -file D:\workspace\springboot-tls\ca-certs\ca.pem
+keytool -importcert -noprompt -keystore D:\workspace\springboot-tls\server-certs\server.jks -storepass secret123 -alias localhost -keypass secret123 -file D:\workspace\springboot-tls\server-certs\server.pem
